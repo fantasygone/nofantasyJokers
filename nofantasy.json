@@ -1,0 +1,14 @@
+{
+	"id": "nofantasy",
+	"name": "nofantasy",
+	"display_name": "Nofantasy Jokers",
+	"author": ["Me"],
+	"description": "Adds new Jokers",
+	"prefix": "nof",
+	"main_file": "nofantasy.lua",
+	"priority": -1,
+	"badge_colour": "c7638f",
+	"badge_text_colour": "",
+	"version": "1.0.0",
+	"dependencies": ["Steamodded (>=1.0.0*~)"]
+}

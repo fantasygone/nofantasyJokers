@@ -1,0 +1,167 @@
+[manifest]
+version = "1.0.0"
+dump_lua = true
+priority = -1
+
+
+
+# Add custom sound to eval
+[[patches]]
+[patches.pattern]
+target = "functions/common_events.lua"
+pattern = "if extra.edition then"
+position = "before"
+payload = "sound = extra.sound or sound"
+match_indent = true
+
+
+
+
+
+# Add G.GAME.disable_discard and Add G.GAME.disable_play to the button checks
+[[patches]]
+[patches.pattern]
+target = "functions/button_callbacks.lua"
+pattern = '''if #G.hand.highlighted <= 0 or G.GAME.blind.block_play or #G.hand.highlighted > 5 then 
+    e.config.colour = G.C.UI.BACKGROUND_INACTIVE
+    e.config.button = nil
+else
+    e.config.colour = G.C.BLUE
+    e.config.button = 'play_cards_from_highlighted'
+end
+'''
+position = "after"
+payload = '''
+if next(SMODS.find_card("j_nof_dowsing_rod")) then
+    if G.GAME.nof_disable_play or #G.hand.highlighted <= 0 or G.GAME.blind.block_play or #G.hand.highlighted > 5 then
+        e.config.colour = G.C.UI.BACKGROUND_INACTIVE
+        e.config.button = nil
+    else
+        e.config.colour = G.C.BLUE
+        e.config.button = 'play_cards_from_highlighted'
+    end
+end
+'''
+match_indent = true
+
+
+
+
+[[patches]]
+[patches.pattern]
+target = "functions/button_callbacks.lua"
+pattern = '''if G.GAME.current_round.discards_left <= 0 or #G.hand.highlighted <= 0 then 
+    e.config.colour = G.C.UI.BACKGROUND_INACTIVE
+    e.config.button = nil
+else
+    e.config.colour = G.C.RED
+    e.config.button = 'discard_cards_from_highlighted'
+end
+'''
+position = "after"
+payload = '''
+if next(SMODS.find_card("j_nof_dowsing_rod")) then
+    if G.GAME.nof_disable_discard or G.GAME.current_round.discards_left <= 0 or #G.hand.highlighted <= 0 then 
+        e.config.colour = G.C.UI.BACKGROUND_INACTIVE
+        e.config.button = nil
+    else
+        e.config.colour = G.C.RED
+        e.config.button = 'discard_cards_from_highlighted'
+    end
+end
+'''
+match_indent = true
+
+
+
+
+# Up to 13 cards with same seed using Garden Plot
+[[patches]]
+[patches.pattern]
+target = "functions/common_events.lua"
+pattern = '''local card = Card(area.T.x + area.T.w/2, area.T.y, G.CARD_W, G.CARD_H, front, center,'''
+position = "before"
+payload = '''
+if (next(SMODS.find_card("j_nof_garden_plot"))) and G.GAME.nof_garden_card.suit and (_type=='Base' or _type == 'Enhanced') then
+    if #G.GAME.nof_garden_card.ranks < 13 then
+        local filteredCardPool = nof_utils.get_cards_by_suit(G.P_CARDS, G.GAME.nof_garden_card.suit)
+        front = ((_type=='Base' or _type == 'Enhanced') and pseudorandom_element(filteredCardPool, pseudoseed('front'..(key_append or '')..G.GAME.round_resets.ante))) or nil
+        table.insert(G.GAME.nof_garden_card.ranks, front.value)
+    end
+end
+'''
+match_indent = true
+
+
+
+
+# Manage Garden Plot when active
+[[patches]]
+[patches.pattern]
+target = "card.lua"
+pattern = '''G.GAME.pack_choices = self.config.center.config.choose or 1'''
+position = "after"
+payload = '''
+local nof_garden_card = SMODS.find_card('j_nof_garden_plot')
+if self.ability.set == 'Booster' and self.ability.name:find('Standard') and nof_garden_card[1] and G.GAME.nof_garden_card.suit then
+    G.GAME.pack_choices = G.GAME.pack_choices + nof_garden_card[1].ability.extra_picks
+end
+'''
+match_indent = true
+
+
+
+
+# Only 1 Unique Joker
+[[patches]]
+[patches.pattern]
+target = "cardarea.lua"
+pattern = "function CardArea:emplace(card, location, stay_flipped)"
+position = "after"
+payload = '''
+local uniqueCards = SMODS.find_card(card.ability.name)
+if nof_utils.contains(unique_jokers, card.ability.name) and #uniqueCards >= 1 and self == G.jokers then
+    uniqueCards[1]:start_dissolve()
+end'''
+match_indent = true
+
+
+
+
+# Sickle logic
+[[patches]]
+[patches.pattern]
+target = "functions/state_events.lua"
+pattern = '''
+    for k, v in ipairs(G.play.cards) do
+        if (not v.shattered) and (not v.destroyed) then 
+            draw_card(G.play,G.discard, it*100/play_count,'down', false, v)
+            it = it + 1
+        end
+    end
+'''
+position = "at"
+payload = '''
+    local nof_sickle = SMODS.find_card('j_nof_sickle')
+
+    if nof_sickle[1] and nof_sickle[1].ability.extra.is_active then
+        nof_sickle[1].ability.extra.is_active = false
+        ease_hands_played(-nof_sickle[1].ability.extra.extra_hands_usage)
+        
+        for k, v in ipairs(G.play.cards) do
+            if (not v.shattered) and (not v.destroyed) then 
+                draw_card(G.play,G.hand, it*100/play_count,'up', true, v)
+                it = it + 1
+            end
+        end
+    else
+        for k, v in ipairs(G.play.cards) do
+            if (not v.shattered) and (not v.destroyed) then 
+                draw_card(G.play,G.discard, it*100/play_count,'down', false, v)
+                it = it + 1
+            end
+        end
+    end
+
+'''
+match_indent = true
